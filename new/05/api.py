@@ -1,7 +1,9 @@
 from flask import Blueprint, request, abort, jsonify
 import sqlalchemy.orm                       
 
-from models import Category, Product
+from models import Category, Product, User
+
+from app import db
 
 api = Blueprint('api', __name__)
 
@@ -34,6 +36,30 @@ def search_query_product():
     
     products = Product.query.filter(Product.name.ilike(f"%{name}%")).all()
     return jsonify([product.as_dict() for product in products])
+
+@api.route('/register')
+def register_api():
+    return jsonify(
+        register(
+            str(request.args.get('username')),
+            str(request.args.get('email')),
+            str(request.args.get('password'))
+        )
+    )
+
+def register(username=None, email=None, password=None):
+    if User.query.filter(User.username == username).count():
+        return {"result": f'Error: {username} user already exists'}
+
+    if User.query.filter(User.email == email).count():
+        return {"result": f'Error: {email} user email address already exists'}
+
+    user = User(username=username, email=email)
+    user.set_password(password)
+    db.session.add(user)
+    db.session.commit()
+
+    return {"result": "ok"}
 
 # @api.route('/search')
 # def add_product():

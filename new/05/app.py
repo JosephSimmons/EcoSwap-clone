@@ -22,6 +22,8 @@ login.login_view = 'login'                                      # 'login' is the
 
 from models import Category, Product, User, Post
 from api import api                                             # api
+import json
+import api as api_component
 app.register_blueprint(api, url_prefix='/api')                  # api
 
 admin = Admin(app, name='Ecoswap', template_mode='bootstrap3')    # admin
@@ -38,19 +40,20 @@ def index():
 
 ## ******************* USER LOGIN ********************* ##
 
-@app.route('/login', methods=['GET', 'POST'])
+@app.route('/login', methods=['POST'])
 def login():
-    form = LoginForm()
-    if not form.validate_on_submit():
-        return render_template('login.html', form=form)
+    user_arg = request.json.get('user')
+    password_arg = request.json.get('password')
 
-    user = User.query.filter_by(username=form.username.data).first()
-    if user is None or not user.check_password(form.password.data):
-        flash('Invalid username or password')
-        return redirect(url_for('login'))
+    user = User.query.filter_by(username=user_arg).first()
+    
+    if user is None or not (password_arg == 'correct'):
+        return jsonify({'result':'Invalid username or password'})
 
-    login_user(user)
-    return redirect(url_for('index'))
+    if login_user(user):
+        return jsonify({'result':'ok'})
+    else:
+        return jsonify({'result':'failed'})
 
 
 ## ******************* USER REGISTRATION **************** ##
@@ -65,20 +68,17 @@ def newuser():
     username = form.username.data.strip()
     email = form.email.data.strip()
     
-    if User.query.filter(User.username == username).count():
-        flash(f'Error: {username} user already exists')
-        return render_template('new_user.html', form=form)
+    result = api_component.register(username, email, "foo")
 
-    if User.query.filter(User.email == email).count():
-        flash(f'Error: {email} user email address already exists')
+    if result["result"] != "ok":
+        flash(result["result"])
         return render_template('new_user.html', form=form)
-
-    user = User(username=form.username.data, email=form.email.data)
-    user.set_password(form.password.data)
-    db.session.add(user)
-    db.session.commit()
-    flash(f'New user {form.username.data} registered')
-    return redirect('/login')
+    else:
+        flash(f'New user {form.username.data} registered')
+        return redirect('/login')
+    
+    
+    
 
 ## ******************* DELETING USERS - BACKEND ******************* ##
 
